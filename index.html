@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>SB SSTV Encoder</title>
+    <link rel="icon" type="image/png" href="icon.png">
+    <!-- Light mode theme color -->
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+
+<!-- Dark mode theme color -->
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121212">
+
+    <meta
+      name="description"
+      content="Encode image into SSTV Signals"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Noto+Sans+Oriya:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary-bg: #f0f2f5;
+            --secondary-bg: #ffffff; /* Used for cards/distinct sections */
+            --text-color: #050505;
+            --text-secondary-color: #65676b;
+            --accent-color: #1e6111;
+            --header-icon-color: #606770;
+            --border-color: #ced0d4;
+            --button-disabled-opacity: 0.5;
+            --shadow-color: rgba(0, 0, 0, 0.08);
+            --shadow-strong-color: rgba(0, 0, 0, 0.12);
+            --border-radius-large: 16px;
+            --border-radius-medium: 8px;
+            --font-family-global: 'Roboto', 'Noto Sans Oriya', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            --glass-blur: 10px;
+            --glass-bg-color: rgba(255, 255, 255, 0.75);
+            --glass-border-color: rgba(255, 255, 255, 0.25);
+            --glass-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        body.dark-mode {
+            --primary-bg: #000000;
+            --secondary-bg: #1c1e21;
+            --text-color: #e4e6eb;
+            --text-secondary-color: #b0b3b8;
+            --header-icon-color: #b0b3b8;
+            --border-color: #393a3b;
+            --shadow-color: rgba(255, 255, 255, 0.05);
+            --shadow-strong-color: rgba(255, 255, 255, 0.08);
+            --glass-bg-color: rgba(28, 30, 33, 0.75);
+            --glass-border-color: rgba(255, 255, 255, 0.1);
+            --glass-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-family-global);
+            background-color: var(--primary-bg);
+            color: var(--text-color);
+            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+            transition: background-color 0.3s, color 0.3s;
+            user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;
+        }
+
+        #splash-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: var(--primary-bg); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 9999;
+            transition: opacity 0.4s ease-out;
+        }
+        .splash-icon-container { flex-grow: 1; display: flex; justify-content: center; align-items: center; width: 100%; }
+        #splash-logo { width: 100px; height: 100px; object-fit: contain; }
+        #splash-bottom-text { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); text-align: center; }
+        #splash-bottom-text .from-text { display: block; font-size: 0.9em; color: var(--text-secondary-color); margin-bottom: 6px; text-transform: uppercase; }
+        #splash-bottom-text .meta-text { font-size: 1.2em; font-weight: 500; letter-spacing: 1.5px; color: var(--text-color); text-transform: uppercase; }
+
+        #app-container { display: none; flex-direction: column; height: 100%; width: 100%; }
+
+        header {
+            background: var(--glass-bg-color); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur));
+            border-bottom: 1px solid var(--glass-border-color); box-shadow: var(--glass-shadow);
+            color: var(--text-color); padding: 10px 16px; display: flex; justify-content: space-between; align-items: center;
+            flex-shrink: 0; z-index: 100; height: 56px;
+        }
+        #app-title { font-size: 1.25em; font-weight: 700; }
+        .header-controls { display: flex; align-items: center; gap: 8px; }
+        .header-controls button {
+            background: none; border: none; color: var(--header-icon-color); cursor: pointer; border-radius: 50%;
+            transition: background-color 0.2s; width: 36px; height: 36px; display: flex; justify-content: center; align-items: center; padding: 0;
+        }
+        .header-controls button:hover { background-color: rgba(128, 128, 128, 0.2); }
+        .header-controls button svg { width: 22px; height: 22px; fill: currentColor; }
+        #lang-toggle { font-size: 1.1em; font-weight: 500; }
+
+        #side-menu {
+            position: fixed; top: 0; left: -300px; width: 300px; height: 100%;
+            background: var(--glass-bg-color); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur));
+            border-right: 1px solid var(--glass-border-color); box-shadow: var(--glass-shadow);
+            z-index: 1000; transition: left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); display: flex; flex-direction: column;
+        }
+        #side-menu.open { left: 0; }
+        .menu-header { padding: 18px 22px; font-size: 1.15em; font-weight: 700; color: var(--text-color); border-bottom: 1px solid var(--glass-border-color); flex-shrink: 0; }
+        #side-menu ul { list-style: none; overflow-y: auto; flex-grow: 1; padding-top: 8px; }
+        #side-menu ul li a { display: flex; align-items: center; padding: 14px 22px; color: var(--text-color); text-decoration: none; border-bottom: 1px solid var(--glass-border-color); transition: background-color 0.2s, color 0.2s; font-weight: 500; }
+        #side-menu ul li a:hover { background-color: rgba(128, 128, 128, 0.15); }
+        #side-menu ul li a.active-menu-item { background-color: var(--accent-color); color: #fff; }
+        #side-menu ul li:last-child a { border-bottom: none; }
+
+        main { flex-grow: 1; overflow: hidden; background-color: var(--primary-bg); padding: 0; position: relative; }
+        
+        .page-content {
+            display: none;
+            animation: fadeIn 0.3s ease-out;
+            padding: 24px 16px;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            overflow-y: auto;
+            background-color: var(--primary-bg);
+        }
+
+        .page-content.active {
+            display: block;
+        }
+        #home-page.active {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .image-upload-area {
+            width: 100%;
+            max-width: 360px;
+            text-align: center;
+            margin-bottom: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #preview-wrapper {
+            position: relative;
+            width: 320px;
+            height: 256px;
+            margin: 0 auto 12px auto;
+            border: 2px dashed var(--border-color);
+            background-color: var(--secondary-bg);
+            border-radius: var(--border-radius-large);
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            overflow: hidden; /* Ensures content (canvas) is clipped to rounded corners */
+        }
+        #preview-wrapper:hover {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 15px color-mix(in srgb, var(--accent-color) 30%, transparent);
+        }
+
+        #preview { /* The canvas element */
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #canvas-placeholder {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            color: var(--text-secondary-color);
+            font-size: 1em;
+            padding: 20px;
+            box-sizing: border-box;
+            pointer-events: none;
+            line-height: 1.4;
+            font-family: var(--font-family-global);
+        }
+
+        .image-instructions { font-size: 0.9em; color: var(--text-secondary-color); }
+        #process-image-btn-container { display: none; width: 100%; max-width: 320px; margin-bottom: 24px; }
+        
+        .app-button { padding: 12px 15px; border: none; color: var(--text-color); background-color: var(--secondary-bg); border-radius: var(--border-radius-medium); cursor: pointer; transition: background-color 0.2s, box-shadow 0.2s, transform 0.1s; font-weight: 500; font-size: 1em; box-shadow: 0 2px 5px var(--shadow-color); text-align: center; text-decoration: none; display: block; width: 100%; }
+        .app-button:hover { background-color: color-mix(in srgb, var(--secondary-bg) 90%, var(--border-color)); box-shadow: 0 4px 8px var(--shadow-strong-color); transform: translateY(-1px); }
+        .app-button:active { box-shadow: 0 1px 2px var(--shadow-color); transform: translateY(0px); }
+        .app-button.accent-button { background-color: var(--accent-color); color: #fff; }
+        .app-button.accent-button:hover { background-color: color-mix(in srgb, var(--accent-color) 85%, black); }
+        .app-button:disabled { opacity: var(--button-disabled-opacity); cursor: not-allowed; box-shadow: none; transform: translateY(0px); background-color: color-mix(in srgb, var(--secondary-bg) 70%, var(--primary-bg)); color: color-mix(in srgb, var(--text-color) 50%, var(--primary-bg)); }
+        #custom-audio-player-container { background: var(--glass-bg-color); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border-color); box-shadow: var(--glass-shadow); padding: 18px; border-radius: var(--border-radius-large); margin-top: 20px; display: none; width: 100%; max-width: 320px; }
+        .player-controls { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+        #play-pause-btn { background: var(--accent-color); border: none; cursor: pointer; padding: 0; color: #fff; width: 44px; height: 44px; border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: background-color 0.2s, transform 0.1s; }
+        #play-pause-btn:hover { background-color: color-mix(in srgb, var(--accent-color) 85%, black); }
+        #play-pause-btn:active { transform: scale(0.95); }
+        #play-pause-btn svg { width: 24px; height: 24px; fill: currentColor; }
+        .progress-bar-container { flex-grow: 1; height: 10px; background-color: color-mix(in srgb, var(--border-color) 50%, transparent); border-radius: 5px; cursor: pointer; overflow: hidden; position: relative; }
+        .progress-bar { height: 100%; width: 0%; background-color: var(--accent-color); border-radius: 5px; transition: width 0.1s linear; }
+        .time-display { font-size: 0.9em; color: var(--text-secondary-color); min-width: 85px; text-align: right; }
+        #save-device-btn-container { text-align: center; margin-top: 18px; }
+        #save-device-btn-container .app-button { display: block; width: 100%; }
+        h2 { margin-bottom: 18px; color: var(--accent-color); font-weight: 700; font-size: 1.8em; }
+        p { line-height: 1.7; margin-bottom: 12px; }
+        a { color: var(--accent-color); text-decoration: none; font-weight: 500; }
+        a:hover { text-decoration: underline; }
+        #about-page .developer-info, #about-page .app-version { margin-bottom: 12px; font-size: 1.1em;}
+        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 999; display: none; opacity: 0; transition: opacity 0.3s ease-in-out; }
+        #overlay.active { display: block; opacity: 1; }
+        input[type="file"] { display: none; }
+    </style>
+</head>
+<body>
+    <svg width="0" height="0" style="position:absolute"> <defs> <symbol id="icon-sun" viewBox="0 0 24 24"> <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.106a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18.75a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-1.5a.75.75 0 01.75-.75zM5.106 17.834a.75.75 0 001.06 1.06l1.591-1.59a.75.75 0 00-1.06-1.061l-1.591 1.59zM3 12a.75.75 0 01-.75.75H.75a.75.75 0 010-1.5H2.25A.75.75 0 013 12zM6.106 5.106a.75.75 0 00-1.06 1.06l1.59 1.591a.75.75 0 001.061-1.06l-1.59-1.591z"/> </symbol> <symbol id="icon-moon" viewBox="0 0 24 24"> <path fill-rule="evenodd" d="M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 003.463-.69.75.75 0 01.981.98 10.503 10.503 0 01-9.694 6.46c-5.799 0-10.5-4.701-10.5-10.5 0-3.51 1.713-6.622 4.43-8.54a.75.75 0 01.818.162z" clip-rule="evenodd" /> </symbol> <symbol id="icon-play" viewBox="0 0 24 24"> <path d="M6 4l12 8-12 8V4z"/> </symbol> <symbol id="icon-pause" viewBox="0 0 24 24"> <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/> </symbol> </defs> </svg>
+    <div id="splash-screen"> <div class="splash-icon-container"> <img src="logo.png" alt="App Logo" id="splash-logo"> </div> <div id="splash-bottom-text"> <span class="from-text" data-lang-key="splashFrom">an app by</span> <span class="meta-text">Sandeep Biswal G <br> (ସନ୍ଦୀପ୍ ବିଶ୍ବାଳ ଜି)</span> </div> </div>
+    <div id="app-container">
+        <header> <span id="app-title">SB SSTV Encoder</span> <div class="header-controls"> <button id="lang-toggle" title="Switch Language">ଓ</button> <button id="theme-toggle" title="Toggle Theme"> <svg><use xlink:href="#icon-sun"></use></svg> </button> <button id="menu-toggle" title="Open Menu"> <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"></path></svg> </button> </div> </header>
+        <nav id="side-menu"> <div class="menu-header">SB SSTV Encoder</div> <ul> <li><a href="#" class="menu-item" data-page="home" data-lang-key="menuHome">Home</a></li> <li><a href="#" class="menu-item" data-page="what-is-sstv" data-lang-key="menuWhatIsSSTV">What is SSTV?</a></li> <li><a href="#" class="menu-item" data-page="about" data-lang-key="menuAbout">About</a></li> </ul> </nav>
+        <main id="main-content">
+            <div id="home-page" class="page-content">
+                <div class="image-upload-area">
+                    <div id="preview-wrapper" title="Tap to select image">
+                        <canvas id="preview" width="320" height="256"></canvas>
+                        <div id="canvas-placeholder">
+                            <span data-lang-key="canvasPlaceholder">Tap to select image</span>
+                        </div>
+                    </div>
+                    <p class="image-instructions" data-lang-key="imageInstructionsNew">
+                        Click or tap above to select an image.
+                    </p>
+                </div>
+                <input type="file" id="image-upload-input" accept="image/*" />
+                <div id="process-image-btn-container"> <button id="process-image-btn" class="app-button accent-button" data-lang-key="processImageBtn">Process Image</button> </div>
+                <div id="custom-audio-player-container">
+                    <div class="player-controls"> <button id="play-pause-btn"> <svg><use xlink:href="#icon-play"></use></svg> </button> <div class="progress-bar-container"> <div class="progress-bar"></div> </div> <span class="time-display">0:00 / 0:00</span> </div>
+                    <div id="save-device-btn-container"> </div> <audio id="hidden-audio-player" style="display:none;"></audio>
+                </div>
+            </div>
+            <div id="what-is-sstv-page" class="page-content"> <h2 data-lang-key="sstvTitle">What is an SSTV Encoder?</h2> <p data-lang-key="sstvContent1">Slow-Scan Television (SSTV) is a picture transmission method...</p> <p data-lang-key="sstvContent2">An SSTV encoder is a piece of software or hardware...</p> <p data-lang-key="sstvContent3">SSTV is widely used for</p> <p data-lang-key="sstvContent4">Different SSTV modes exist...</p> </div>
+            <div id="about-page" class="page-content"> <h2 data-lang-key="aboutTitle">About This App</h2> <div class="developer-info"> <strong data-lang-key="developerLabel">Developer:</strong> Sandeep Biswal G </div> <div class="app-version"> <strong data-lang-key="versionLabel">App Version:</strong> 1.0.9 </div> <p> <a href="https://www.instagram.com/sandeepbiswalg/" target="_blank" rel="noopener noreferrer" data-lang-key="instagramLink"> Follow me on Instagram </a> </p> </div>
+        </main>
+    </div>
+    <div id="overlay"></div>
+
+    <script>
+        console.log("Script execution started.");
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOMContentLoaded event fired.");
+
+            const splashScreen = document.getElementById('splash-screen');
+            const appContainer = document.getElementById('app-container');
+            if (!splashScreen || !appContainer) {
+                console.error("CRITICAL: Splash screen or App container not found in DOM!");
+                return;
+            }
+            console.log("Splash screen and app container found.");
+
+            const menuToggle = document.getElementById('menu-toggle');
+            const sideMenu = document.getElementById('side-menu');
+            const menuItems = document.querySelectorAll('.menu-item');
+            const themeToggleButton = document.getElementById('theme-toggle');
+            const langToggle = document.getElementById('lang-toggle');
+            const appTitleElement = document.getElementById('app-title');
+            const overlay = document.getElementById('overlay');
+            const body = document.body;
+            const imageUploadInput = document.getElementById('image-upload-input');
+            const previewCanvas = document.getElementById('preview');
+            const previewWrapper = document.getElementById('preview-wrapper');
+            const canvasPlaceholder = document.getElementById('canvas-placeholder');
+            const processImageBtnContainer = document.getElementById('process-image-btn-container');
+            const processImageBtn = document.getElementById('process-image-btn');
+            const customAudioPlayerContainer = document.getElementById('custom-audio-player-container');
+            const hiddenAudioPlayer = document.getElementById('hidden-audio-player');
+            const playPauseBtn = document.getElementById('play-pause-btn');
+            const progressBar = document.querySelector('.progress-bar');
+            const progressBarContainer = document.querySelector('.progress-bar-container');
+            const timeDisplay = document.querySelector('.time-display');
+            const saveDeviceBtnContainer = document.getElementById('save-device-btn-container');
+            const homePageElement = document.getElementById('home-page');
+            const allPages = document.querySelectorAll('.page-content');
+
+
+            const translations = {
+                en: {
+                    appName: "SB SSTV Encoder", splashFrom: "from", menuHome: "Home", menuWhatIsSSTV: "What is SSTV?", menuAbout: "About",
+                    imageInstructionsNew: "Click or tap above to select an image.",
+                    processImageBtn: "Process Image into SSTV Signal",
+                    saveToDeviceBtn: "Save to Device",
+                    sstvTitle: "What is an SSTV Encoder?",
+                    sstvContent1: "Slow Scan Television (SSTV) is a specialized image transmission method primarily used by amateur radio operators, also known as ham radio enthusiasts, to send and receive static images over radio frequencies. Unlike conventional television broadcasting, which transmits high-resolution video at a rapid frame rate (typically 24 to 60 frames per second), SSTV operates at a much slower pace, sending images one at a time over a period ranging from a few seconds to several minutes. This slow transmission is designed to work within the limited bandwidth of radio communication channels, particularly in the high-frequency (HF), very high-frequency (VHF), and ultra-high-frequency (UHF) bands.",
+                    sstvContent2: "SSTV works by converting an image into an audio signal, where different tones or frequencies represent varying colors and brightness levels. These audio signals are transmitted via radio, and at the receiving end, specialized software or hardware decodes the audio back into a visual image. The process is analogous to how a fax machine transmits documents, but it is adapted for radio communication. Common image resolutions for SSTV are relatively low, such as 320x240 or 640x480 pixels, and images are typically sent in formats like RGB (color) or grayscale.",
+                    sstvContent3: "SSTV is widely used for hobbyist activities, experimentation, and communication among radio amateurs. It is also employed for transmitting images from space, notably by astronauts aboard the International Space Station (ISS), who use SSTV to send images to ground stations. Various SSTV modes exist, such as Martin, Scottie, and Robot, each with different transmission speeds and resolutions. For example, the Martin 1 mode takes about 114 seconds to transmit an image, while Scottie 1 takes around 71 seconds.",
+                    sstvContent4:" The equipment required for SSTV includes a radio transceiver, an antenna, a computer or dedicated SSTV hardware, and software like MMSSTV or QSSTV. Operators often use sound cards to interface between the computer and the radio, allowing the conversion of digital images into audio signals and vice versa. SSTV is popular in the amateur radio community because it combines technical skill, creativity, and global communication, enabling operators to share images across vast distances without relying on the internet.",
+                    aboutTitle: "About This App", developerLabel: "Developer:", versionLabel: "App Version:", instagramLink: "Follow me on Instagram",
+                    langToggleText: "ଓ",
+                    alertNoImage: "Please select an image first.", alertErrorLoadingImage: "Error loading image.",
+                    alertErrorPlayingAudio: "Error playing audio.", alertErrorRenderingWAV: "Error processing image.",
+                    canvasPlaceholder: "Tap to select image"
+                },
+                or: {
+                    appName: "ଏସ୍‌ବି ଏସ୍‌ଏସ୍‌ଟିଭି ଏନ୍ କୋଡର ", splashFrom: " ଦ୍ୱାରା", menuHome: "ଘର", menuWhatIsSSTV: "ଏସ୍‌ଏସ୍‌ଟିଭି କ'ଣ?", menuAbout: "ଆପ୍ ସମ୍ପର୍କରେ",
+                    imageInstructionsNew: "ଏକ ଚିତ୍ର ବାଛିବା ପାଇଁ ଉପରେ କ୍ଲିକ୍ କରନ୍ତୁ କିମ୍ବା ଟ୍ୟାପ୍ କରନ୍ତୁ।",
+                    processImageBtn: "ପ୍ରତିଛବିକୁ ଏସ୍‌ଏସ୍‌ଟିଭି ସିଗ୍ନାଲରେ ପରିବର୍ତ୍ତନ କରନ୍ତୁ",
+                    saveToDeviceBtn: "ଡିଭାଇସରେ ସେଭ୍ କରନ୍ତୁ",
+                    sstvTitle: "ଏସ୍‌ଏସ୍‌ଟିଭି ଏନକୋଡର୍ କ'ଣ?",
+                    sstvContent1: "ସ୍ଲୋ ସ୍କାନ୍ ଟେଲିଭିଜନ୍ (SSTV) ଏକ ବିଶେଷ ଚିତ୍ର ପ୍ରସାରଣ ପଦ୍ଧତି, ଯାହା ମୁଖ୍ୟତଃ ଆମାଟେର ରେଡିଓ ଅପରେଟରମାନେ, ଯାହାଙ୍କୁ ହାମ୍ ରେଡିଓ ଉତ୍ସାହୀ ଭାବେ ମଧ୍ୟ ଜଣାଯାଏ, ରେଡିଓ ଫ୍ରିକ୍ୱେନ୍ସି ମାଧ୍ୟମରେ ସ୍ଥିର ଚିତ୍ର ପଠାଇବା ଓ ଗ୍ରହଣ କରିବା ପାଇଁ ବ୍ୟବହାର କରନ୍ତି। ସାଧାରଣ ଟେଲିଭିଜନ୍ ପ୍ରସାରଣ ଠାରୁ ଭିନ୍ନ, ଯାହା ଉଚ୍ଚ ରିଜୋଲ୍ୟୁସନ୍ ଭିଡିଓକୁ ଦ୍ରୁତ ଫ୍ରେମ୍ ରେଟ୍‌ରେ (ସାଧାରଣତଃ ସେକେଣ୍ଡ୍‌ରେ ୨୪–୬୦ ଫ୍ରେମ୍) ପଠାଏ, SSTV ଅତ୍ୟନ୍ତ ଧୀର ଗତିରେ କାର୍ଯ୍ୟ କରେ, ଗୋଟିଏ ଗୋଟିଏ ଚିତ୍ରକୁ କିଛି ସେକେଣ୍ଡରୁ କିଛି ମିନିଟ୍ ମଧ୍ୟରେ ପଠାଏ। ଏହି ଧୀର ପ୍ରସାରଣ ରେଡିଓ ଯୋଗାଯୋଗ ଚ୍ୟାନେଲ୍‌ର ସୀମିତ ବ୍ୟାଣ୍ଡୱିଡ଼ଥ୍ ମଧ୍ୟରେ କାର୍ଯ୍ୟ କରିବା ପାଇଁ ଡିଜାଇନ୍ କରାଯାଇଛି, ବିଶେଷକରି ଉଚ୍ଚ ଫ୍ରିକ୍ୱେନ୍ସି (HF), ଅତି ଉଚ୍ଚ ଫ୍ରିକ୍ୱେନ୍ସି (VHF), ଏବଂ ଅଲ୍ଟ୍ରା ଉଚ୍ଚ ଫ୍ରିକ୍ୱେନ୍ସି (UHF) ବ୍ୟାଣ୍ଡରେ।",
+                    sstvContent2: "ଏସ୍‌ଏସ୍‌ଟିଭି ଚିତ୍ରକୁ ଏକ ଅଡିଓ ସଂକେତରେ ରୂପାନ୍ତର କରି କାର୍ଯ୍ୟ କରେ, ଯେଉଁଠାରେ ବିଭିନ୍ନ ଟୋନ୍ ବା ଫ୍ରିକ୍ୱେନ୍ସି ଭିନ୍ନ ରଙ୍ଗ ଏବଂ ଉଜ୍ଜ୍ୱଳତା ସ୍ତରକୁ ପ୍ରତିନିଧିତ୍ୱ କରେ। ଏହି ଅଡିଓ ସଂକେତଗୁଡ଼ିକ ରେଡିଓ ମାଧ୍ୟମରେ ପଠାଯାଏ, ଏବଂ ଗ୍ରହଣ କରୁଥିବା ପଟେ ବିଶେଷ ସଫ୍ଟୱେର୍ ବା ହାର୍ଡୱେର୍ ଅଡିଓକୁ ପୁନର୍ବାର ଚିତ୍ରରେ ଡିକୋଡ୍ କରେ। ଏହି ପ୍ରକ୍ରିୟା ଫ୍ୟାକ୍ସ ମେସିନ୍ ଦସ୍ତାବିଜ ପଠାଇବା ପରି, କିନ୍ତୁ ଏହା ରେଡିଓ ଯୋଗାଯୋଗ ପାଇଁ ଅନୁକୂଳିତ। SSTV ପାଇଁ ସାଧାରଣ ଚିତ୍ର ରିଜୋଲ୍ୟୁସନ୍ ଅପେକ୍ଷାକୃତ କମ୍, ଯେପରିକି ୩୨୦x୨୪୦ ବା ୬୪0x୪୮0 ପିକ୍ସେଲ୍, ଏବଂ ଚିତ୍ରଗୁଡ଼ିକୁ ସାଧାରଣତଃ RGB (ରଙ୍ଗୀନ) ବା ଗ୍ରେସ୍କେଲ୍ ଫର୍ମାଟରେ ପଠାଯାଏ।",
+                    sstvContent3: "ଏସ୍‌ଏସ୍‌ଟିଭି ଶୌଖୀନ କାର୍ଯ୍ୟକଳାପ, ପରୀକ୍ଷଣ, ଏବଂ ରେଡିଓ ଅପରେଟରଙ୍କ ମଧ୍ୟରେ ଯୋଗାଯୋଗ ପାଇଁ ବ୍ୟାପକ ଭାବେ ବ୍ୟବହୃତ ହୁଏ। ଏହା ମହାକାଶରୁ ଚିତ୍ର ପଠାଇବା ପାଇଁ ମଧ୍ୟ ବ୍ୟବହୃତ ହୁଏ, ବିଶେଷକରି ଅନ୍ତର୍ଜାତୀୟ ମହାକାଶ ଷ୍ଟେସନ୍ (ISS) ରେ ଥିବା ମହାକାଶଚାରୀମାନେ ଏହାକୁ ବ୍ୟବହାର କରି ଚିତ୍ରଗୁଡ଼ିକୁ ପୃଥିବୀର ଗ୍ରାଉଣ୍ଡ ଷ୍ଟେସନ୍‌କୁ ପଠାନ୍ତି। ଏସ୍‌ଏସ୍‌ଟିଭି ରେ ବିଭିନ୍ନ ମୋଡ୍ ରହିଛି, ଯେପରିକି ମାର୍ଟିନ୍, ସ୍କଟି, ଏବଂ ରୋବଟ୍, ଯେଉଁଗୁଡ଼ିକର ପ୍ରସାରଣ ଗତି ଏବଂ ରିଜୋଲ୍ୟୁସନ୍ ଭିନ୍ନ। ଉଦାହରଣ ସ୍ୱରୂପ, ମାର୍ଟିନ୍ ୧ ମୋଡ୍ ଗୋଟିଏ ଚିତ୍ର ପଠାଇବା ପାଇଁ ପ୍ରାୟ ୧୧୪ ସେକେଣ୍ଡ ନେଇଥାଏ, ଆଉ ସ୍କଟି ୧ ପ୍ରାୟ ୭୧ ସେକେଣ୍ଡ ନେଇଥାଏ।",
+                     sstvContent4: "ଏସ୍‌ଏସ୍‌ଟିଭି ପାଇଁ ଆବଶ୍ୟକ ଉପକରଣରେ ଏକ ରେଡିଓ ଟ୍ରାନ୍ସସିଭର, ଏକ ଆଣ୍ଟେନା, ଏକ କମ୍ପ୍ୟୁଟର ବା ଡେଡିକେଟେଡ୍ ଏସ୍‌ଏସ୍‌ଟିଭି ହାର୍ଡୱେର୍, ଏବଂ MMSSTV ବା QSSTV ପରି ସଫ୍ଟୱେର୍ ଅନ୍ତର୍ଭୁକ୍ତ। ଅପରେଟରମାନେ ପ୍ରାୟତଃ ସାଉଣ୍ଡ କାର୍ଡ ବ୍ୟବହାର କରି କମ୍ପ୍ୟୁଟର ଓ ରେଡିଓ ମଧ୍ୟରେ ଇଣ୍ଟରଫେସ କରନ୍ତି, ଯାହା ଡିଜିଟାଲ୍ ଚିତ୍ରକୁ ଅଡିଓ ସଂକେତରେ ଏବଂ ଅଡିଓ ସଂକେତକୁ ଚିତ୍ରରେ ରୂପାନ୍ତର କରିବାକୁ ସହାୟକ ହୁଏ। ଏସ୍‌ଏସ୍‌ଟିଭି ଆମାଟେର ରେଡିଓ ସମୁଦାୟରେ ଲୋକପ୍ରିୟ କାରଣ ଏହା ଟେକ୍ନିକାଲ୍ ଦକ୍ଷତା, ସୃଜନଶୀଳତା, ଏବଂ ବିଶ୍ୱବ୍ୟାପୀ ଯୋଗାଯୋଗକୁ ଏକତ୍ରିତ କରେ, ଯାହା ଅପରେଟରମାନଙ୍କୁ ଇଣ୍ଟରନେଟ୍ ଉପରେ ନିର୍ଭର ନକରି ବିସ୍ତୃତ ଦୂରତ୍ୱରେ ଚିତ୍ର ଅଦାନପ୍ରଦାନ କରିବାକୁ ସକ୍ଷମ କରେ।",
+                    aboutTitle: "ଏହି ଆପ୍ ସମ୍ପର୍କରେ", developerLabel: "ଡେଭଲପର୍:", versionLabel: "ଆପ୍ ସଂସ୍କରଣ:", instagramLink: "ମୋତେ ଇନଷ୍ଟାଗ୍ରାମରେ ଅନୁସରଣ କରନ୍ତୁ",
+                    langToggleText: "E",
+                    alertNoImage: "ଦୟାକରି ପ୍ରଥମେ ଏକ ଚିତ୍ର ବାଛନ୍ତୁ।", alertErrorLoadingImage: "ଚିତ୍ର ଲୋଡ୍ କରିବାରେ ତ୍ରୁଟି।",
+                    alertErrorPlayingAudio: "ଅଡିଓ ଚଲାଇବାରେ ତ୍ରୁଟି।", alertErrorRenderingWAV: "ଇମେଜ୍ ପ୍ରୋସେସ୍ କରିବାରେ ତ୍ରୁଟି।",
+                    canvasPlaceholder: "ଚିତ୍ର ବାଛିବା ପାଇଁ ଟ୍ୟାପ୍ କରନ୍ତୁ"
+                }
+            };
+
+            let currentLang = localStorage.getItem('appLanguage') || 'en';
+            let currentTheme = localStorage.getItem('appTheme') || 'light';
+            let currentImageForSSTV;
+            let isAudioPlaying = false;
+
+            const LOGICAL_SSTV_WIDTH = 320;
+            const LOGICAL_SSTV_HEIGHT = 256;
+
+            console.log("Starting splash screen timeout.");
+            try {
+                setTimeout(() => {
+                    console.log("Splash screen timeout reached. Hiding splash.");
+                    if (splashScreen) splashScreen.style.opacity = '0'; else console.error("Splash screen not found in timeout!");
+                    setTimeout(() => {
+                        if (splashScreen) splashScreen.style.display = 'none';
+                        if (appContainer) appContainer.style.display = 'flex'; else console.error("App container not found in timeout!");
+                        console.log("App container displayed. Applying theme and language.");
+                        applyTheme(currentTheme);
+                        applyLanguage(currentLang);
+                        updateButtonStates();
+                        setupInitialPage();
+                        drawSSTVPreview(null);
+                        console.log("Initial setup complete.");
+                    }, 400);
+                }, 2000);
+            } catch (e) {
+                console.error("Error in splash screen timeout setup:", e);
+            }
+
+
+            function applyTheme(theme) {
+                try {
+                    body.classList.toggle('dark-mode', theme === 'dark');
+                    const themeIconUse = themeToggleButton.querySelector('use');
+                    themeIconUse.setAttribute('xlink:href', theme === 'dark' ? '#icon-sun' : '#icon-moon');
+                    localStorage.setItem('appTheme', theme); currentTheme = theme;
+                    if (typeof drawSSTVPreview === 'function') drawSSTVPreview(currentImageForSSTV);
+                } catch (e) { console.error("Error in applyTheme:", e); }
+            }
+            themeToggleButton.addEventListener('click', () => applyTheme(body.classList.contains('dark-mode') ? 'light' : 'dark'));
+
+            function applyLanguage(lang) {
+                try {
+                    const langData = translations[lang]; if (!langData) return;
+                    currentLang = lang; localStorage.setItem('appLanguage', lang);
+                    appTitleElement.textContent = langData.appName;
+                    langToggle.textContent = langData.langToggleText;
+                    document.querySelectorAll('[data-lang-key]').forEach(el => {
+                        const key = el.getAttribute('data-lang-key');
+                        if (langData[key]) el.textContent = langData[key];
+                    });
+                } catch (e) { console.error("Error in applyLanguage:", e); }
+            }
+            langToggle.addEventListener('click', () => applyLanguage(currentLang === 'en' ? 'or' : 'en'));
+
+            menuToggle.addEventListener('click', () => { sideMenu.classList.toggle('open'); overlay.classList.toggle('active'); });
+            overlay.addEventListener('click', () => { sideMenu.classList.remove('open'); overlay.classList.remove('active'); });
+            
+            menuItems.forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    menuItems.forEach(i => i.classList.remove('active-menu-item'));
+                    item.classList.add('active-menu-item');
+                    
+                    const pageIdToShow = item.getAttribute('data-page') + '-page';
+                    
+                    allPages.forEach(page => {
+                        page.classList.remove('active');
+                    });
+
+                    const targetPage = document.getElementById(pageIdToShow);
+                    if (targetPage) {
+                        targetPage.classList.add('active');
+                    }
+                    
+                    sideMenu.classList.remove('open'); overlay.classList.remove('active');
+                });
+            });
+
+            function setupInitialPage() {
+                allPages.forEach(page => page.classList.remove('active'));
+                if (homePageElement) {
+                    homePageElement.classList.add('active');
+                }
+                const homeMenuItem = document.querySelector(`.menu-item[data-page="home"]`);
+                if (homeMenuItem) {
+                    homeMenuItem.classList.add('active-menu-item');
+                }
+            }
+
+            const sstvCtx = previewCanvas.getContext('2d', { willReadFrequently: true });
+
+            function updateButtonStates() {
+                const hasImage = !!currentImageForSSTV;
+                processImageBtnContainer.style.display = hasImage ? 'block' : 'none';
+                processImageBtn.disabled = !hasImage;
+                if (canvasPlaceholder) { // Show/hide placeholder based on image presence
+                    canvasPlaceholder.style.display = hasImage ? 'none' : 'flex';
+                }
+                if (!hasImage) {
+                    customAudioPlayerContainer.style.display = 'none';
+                    saveDeviceBtnContainer.innerHTML = '';
+                }
+            }
+
+            function drawSSTVPreview(imageToDraw) {
+                try {
+                    const dpr = window.devicePixelRatio || 1;
+                    previewCanvas.width = LOGICAL_SSTV_WIDTH * dpr;
+                    previewCanvas.height = LOGICAL_SSTV_HEIGHT * dpr;
+
+                    const ctx = sstvCtx;
+                    ctx.scale(dpr, dpr);
+
+                    ctx.fillStyle = getComputedStyle(previewWrapper).getPropertyValue('background-color').trim();
+                    ctx.fillRect(0, 0, LOGICAL_SSTV_WIDTH, LOGICAL_SSTV_HEIGHT);
+
+                    if (imageToDraw && imageToDraw.complete && imageToDraw.naturalWidth > 0) {
+                        const imgWidth = imageToDraw.naturalWidth;
+                        const imgHeight = imageToDraw.naturalHeight;
+                        const canvasAspect = LOGICAL_SSTV_WIDTH / LOGICAL_SSTV_HEIGHT;
+                        const imgAspect = imgWidth / imgHeight;
+                        
+                        let drawWidth, drawHeight, offsetX, offsetY;
+
+                        if (imgAspect > canvasAspect) {
+                            drawWidth = LOGICAL_SSTV_WIDTH;
+                            drawHeight = drawWidth / imgAspect;
+                            offsetX = 0;
+                            offsetY = (LOGICAL_SSTV_HEIGHT - drawHeight) / 2;
+                        } else {
+                            drawHeight = LOGICAL_SSTV_HEIGHT;
+                            drawWidth = drawHeight * imgAspect;
+                            offsetY = 0;
+                            offsetX = (LOGICAL_SSTV_WIDTH - drawWidth) / 2;
+                        }
+                        ctx.drawImage(imageToDraw, offsetX, offsetY, drawWidth, drawHeight);
+                    }
+                    // updateButtonStates will handle placeholder visibility
+                } catch(e) { console.error("Error in drawSSTVPreview:", e); }
+            }
+
+            if (previewWrapper) {
+                previewWrapper.addEventListener('click', () => imageUploadInput.click());
+            }
+
+            imageUploadInput.addEventListener('change', (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    const file = e.target.files[0]; const reader = new FileReader();
+                    reader.onload = (event) => {
+                        currentImageForSSTV = new Image();
+                        currentImageForSSTV.onload = () => { 
+                            drawSSTVPreview(currentImageForSSTV); 
+                            updateButtonStates(); 
+                            customAudioPlayerContainer.style.display = 'none'; 
+                            saveDeviceBtnContainer.innerHTML = ''; 
+                        };
+                        currentImageForSSTV.onerror = () => {
+                            alert(translations[currentLang]?.alertErrorLoadingImage);
+                            currentImageForSSTV = null; // Reset on error
+                            drawSSTVPreview(null);
+                            updateButtonStates();
+                        };
+                        currentImageForSSTV.src = event.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            class SSTVTone {
+                #oscillator; #start; #time; #context;
+                constructor (audioCtx, delay = 0) { this.#context = audioCtx; this.#oscillator = this.#context.createOscillator(); this.#oscillator.connect(this.#context.destination); this.#start = this.#time = this.#context.currentTime + delay; }
+                tone (frequency, duration) { this.#oscillator.frequency.setValueAtTime(frequency, this.#time); this.#time += duration / 1000; }
+                mode (modeVal) { const bits = Array.from(modeVal.toString(2).padStart(7, '0'),Number).reverse(); bits.push(bits.reduce((cum, curr) => cum ^ curr, 0)); for (const bit of bits) { this.tone(bit ? 1100 : 1300, 30); } this.tone(1200, 30); }
+                play () { return new Promise((resolve, reject) => { try { this.#oscillator.start(this.#start); this.#oscillator.stop(this.#time); this.#oscillator.addEventListener('ended', () => { this.#oscillator.disconnect(); resolve(); }); } catch (error) { console.error("Error in SSTVTone play:", error); this.#oscillator.disconnect(); reject(error); } }); }
+                stop () { try { this.#oscillator.stop(); this.#oscillator.disconnect(); } catch (e) {} }
+            }
+            const SSTV_DELAY = 0.1; const SSTV_HELLO = [1900, 1500, 1900, 1500, 2300, 1500, 2300, 1500];
+            const SSTV_MODE = 60; const SSTV_COLOR_LOW = 1500; const SSTV_COLOR_HIGH = 2300;
+            
+            function writeImageToSSTVTone (imageData, sstvToneInstance) {
+                for (const freq of SSTV_HELLO) { sstvToneInstance.tone(freq, 100); }
+                sstvToneInstance.tone(1900, 300); sstvToneInstance.tone(1200, 10); sstvToneInstance.tone(1900, 300); sstvToneInstance.tone(1200, 30);
+                sstvToneInstance.mode(SSTV_MODE); sstvToneInstance.tone(1200, 9);
+                for (let y = 0; y < LOGICAL_SSTV_HEIGHT; y++) { const start = y * LOGICAL_SSTV_WIDTH * 4; for (const channel of [1, 2, 0]) { if (channel === 0) { sstvToneInstance.tone(1200, 9); } sstvToneInstance.tone(1500, 1.5); for (let x = 0; x < LOGICAL_SSTV_WIDTH; x++) { const value = imageData.data[start + x * 4 + channel]; sstvToneInstance.tone(SSTV_COLOR_LOW + (SSTV_COLOR_HIGH - SSTV_COLOR_LOW) * (value / 255), 0.432); } } }
+            }
+            function getStretchedImageDataForEncoding() {
+                if (!currentImageForSSTV || !currentImageForSSTV.complete || currentImageForSSTV.naturalWidth === 0) { alert(translations[currentLang]?.alertNoImage); return null; }
+                const tempCanvas = document.createElement('canvas'); tempCanvas.width = LOGICAL_SSTV_WIDTH; tempCanvas.height = LOGICAL_SSTV_HEIGHT; const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(currentImageForSSTV, 0, 0, LOGICAL_SSTV_WIDTH, LOGICAL_SSTV_HEIGHT); 
+                return tempCtx.getImageData(0, 0, LOGICAL_SSTV_WIDTH, LOGICAL_SSTV_HEIGHT);
+            }
+            const sstvEncoder = new TextEncoder();
+            function createWavHeader (byteCount, sampleRate, channelCount = 1) {
+                const h=new DataView(new ArrayBuffer(44)),bv=new Uint8Array(h.buffer); bv.set(sstvEncoder.encode('RIFF'),0);h.setUint32(4,byteCount+36,true); bv.set(sstvEncoder.encode('WAVE'),8);bv.set(sstvEncoder.encode('fmt '),12); h.setUint32(16,16,true);h.setUint16(20,1,true);h.setUint16(22,channelCount,true); h.setUint32(24,sampleRate,true);h.setUint32(28,sampleRate*2*channelCount,true); h.setUint16(32,channelCount*2,true);h.setUint16(34,16,true); bv.set(sstvEncoder.encode('data'),36);h.setUint32(40,byteCount,true);return h;
+            }
+            const SSTV_TOTAL_LENGTH_MS = 111343.32; const SSTV_SAMPLE_RATE = 44100;
+            function getFormattedTimestamp() {
+                const n=new Date(),Y=n.getFullYear(),M=(n.getMonth()+1).toString().padStart(2,'0'),D=n.getDate().toString().padStart(2,'0'),h=n.getHours().toString().padStart(2,'0'),m=n.getMinutes().toString().padStart(2,'0'),s=n.getSeconds().toString().padStart(2,'0'); return `${Y}${M}${D}_${h}${m}${s}`;
+            }
+            function createWavBlobFromBuffer(audioBuffer) {
+                const floats = audioBuffer.getChannelData(0);
+                const view = new DataView(new ArrayBuffer(floats.length * 2));
+                for (const [i, floatVal] of floats.entries()) { view.setInt16(i * 2, Math.min(Math.max(floatVal, -1), 1) * 0x7fff, true); }
+                return new Blob([createWavHeader(view.byteLength, audioBuffer.sampleRate), view], { type: 'audio/wav' });
+            }
+
+            processImageBtn.addEventListener('click', async () => {
+                if (!currentImageForSSTV) { alert(translations[currentLang]?.alertNoImage); return; }
+                const imageData = getStretchedImageDataForEncoding(); if (!imageData) return;
+                processImageBtn.disabled = true;
+                const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)({ numberOfChannels: 1, length: Math.ceil((SSTV_TOTAL_LENGTH_MS * SSTV_SAMPLE_RATE) / 1000), sampleRate: SSTV_SAMPLE_RATE });
+                const sstvTone = new SSTVTone(offlineCtx); writeImageToSSTVTone(imageData, sstvTone); sstvTone.play();
+                try {
+                    const renderedBuffer = await offlineCtx.startRendering();
+                    const wavBlob = createWavBlobFromBuffer(renderedBuffer);
+                    const objectURL = URL.createObjectURL(wavBlob);
+                    hiddenAudioPlayer.src = objectURL; customAudioPlayerContainer.style.display = 'block';
+                    saveDeviceBtnContainer.innerHTML = '';
+                    const saveButton = document.createElement('a'); saveButton.href = objectURL;
+                    saveButton.download = `SB SSTV ENCODER ${getFormattedTimestamp()}.wav`;
+                    saveButton.classList.add('app-button', 'accent-button');
+                    saveButton.setAttribute('data-lang-key', 'saveToDeviceBtn');
+                    saveButton.textContent = translations[currentLang]?.saveToDeviceBtn || "Save to Device";
+                    saveDeviceBtnContainer.appendChild(saveButton);
+                } catch (err) { console.error("Error processing image:", err); alert(translations[currentLang]?.alertErrorRenderingWAV);
+                } finally { processImageBtn.disabled = false; }
+            });
+
+            playPauseBtn.addEventListener('click', () => { if (!hiddenAudioPlayer.src || hiddenAudioPlayer.readyState < 2) return; if (isAudioPlaying) { hiddenAudioPlayer.pause(); } else { hiddenAudioPlayer.play(); } });
+            hiddenAudioPlayer.addEventListener('play', () => { isAudioPlaying = true; playPauseBtn.querySelector('use').setAttribute('xlink:href', '#icon-pause'); });
+            hiddenAudioPlayer.addEventListener('pause', () => { isAudioPlaying = false; playPauseBtn.querySelector('use').setAttribute('xlink:href', '#icon-play'); });
+            hiddenAudioPlayer.addEventListener('ended', () => { isAudioPlaying = false; playPauseBtn.querySelector('use').setAttribute('xlink:href', '#icon-play'); progressBar.style.width = '0%'; });
+            hiddenAudioPlayer.addEventListener('loadedmetadata', () => { updateProgressBar(); timeDisplay.textContent = `${formatTime(0)} / ${formatTime(hiddenAudioPlayer.duration)}`; });
+            hiddenAudioPlayer.addEventListener('timeupdate', updateProgressBar);
+            function updateProgressBar() { if (!hiddenAudioPlayer.duration) return; const percentage = (hiddenAudioPlayer.currentTime / hiddenAudioPlayer.duration) * 100; progressBar.style.width = `${percentage}%`; timeDisplay.textContent = `${formatTime(hiddenAudioPlayer.currentTime)} / ${formatTime(hiddenAudioPlayer.duration)}`; }
+            progressBarContainer.addEventListener('click', (e) => { if (!hiddenAudioPlayer.duration || hiddenAudioPlayer.readyState < 2) return; const progressBarRect = progressBarContainer.getBoundingClientRect(); const clickPosition = (e.clientX - progressBarRect.left) / progressBarRect.width; hiddenAudioPlayer.currentTime = clickPosition * hiddenAudioPlayer.duration; });
+            function formatTime(seconds) { const minutes = Math.floor(seconds / 60); const remainingSeconds = Math.floor(seconds % 60); return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`; }
+
+            console.log("Initial functions called after DOMContentLoaded.");
+        });
+        console.log("Script execution finished (end of script tag).");
+    </script>
+</body>
+</html>
